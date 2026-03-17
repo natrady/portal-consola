@@ -44,7 +44,43 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # ==========================================
-# AUTENTICACIÓN CON GOOGLE CLOUD
+# 🛑 SISTEMA DE LOGIN VIP (EL CADENERO)
+# ==========================================
+if 'logeado' not in st.session_state:
+    st.session_state['logeado'] = False
+
+if not st.session_state['logeado']:
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    col_espacio1, col_login, col_espacio3 = st.columns([1, 1.5, 1])
+    
+    with col_login:
+        st.markdown("""
+        <div class="dashboard-card" style="text-align: center; border-top: 5px solid #9b2247;">
+            <h2 style="color: #161a1d; margin-bottom: 5px;">Portal Consola</h2>
+            <p style="color: #6c757d; font-weight: bold; margin-bottom: 20px;">Verificación Digital</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        usuario_input = st.text_input("👤 Usuario / Correo")
+        password_input = st.text_input("🔑 Contraseña", type="password")
+        
+        if st.button("Iniciar Sesión", use_container_width=True):
+            # Leemos las credenciales válidas desde los secretos de la nube
+            credenciales_validas = st.secrets.get("usuarios", {})
+            
+            if usuario_input in credenciales_validas and credenciales_validas[usuario_input] == password_input:
+                st.session_state['logeado'] = True
+                st.session_state['usuario_actual'] = usuario_input
+                st.rerun()
+            else:
+                st.error("🚨 Usuario o contraseña incorrectos. Intenta de nuevo.")
+                
+    # Si no está logeado, st.stop() mata la ejecución aquí mismo. 
+    # El código de abajo NO se ejecuta y se protegen tus datos.
+    st.stop()
+
+# ==========================================
+# AUTENTICACIÓN CON GOOGLE CLOUD (SECRETS)
 # ==========================================
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
@@ -52,12 +88,14 @@ SCOPES = [
 ]
 
 try:
-    creds = Credentials.from_service_account_file("credenciales.json", scopes=SCOPES)
+    # Ahora leemos el JSON directamente desde los "secretos" de Streamlit en la nube
+    # (O desde un archivo .streamlit/secrets.toml en tu computadora local)
+    credenciales_dict = dict(st.secrets["gcp_service_account"])
+    creds = Credentials.from_service_account_info(credenciales_dict, scopes=SCOPES)
     gc = gspread.authorize(creds)
 except Exception as e:
-    st.error(f"🚨 Error de autenticación. ¿Seguro que el archivo credenciales.json está en la carpeta? Detalle: {e}")
+    st.error(f"🚨 Error de autenticación. Revisa tus st.secrets. Detalle: {e}")
     gc = None
-
 # IDs de tus Google Sheets
 SHEET_PERSONAL_ID = "1WWJ1Y-Ay_iSJIOATMAEfBPEIDfhz2xdqsTnECojWSXo"
 SHEET_PENDIENTES_ID = "1B1WQstMuWfvjh2wcAEtJS6FP78nbbTU6im2J7qzaYYo"
