@@ -9,6 +9,7 @@ import plotly.graph_objects as go
 from google.oauth2.service_account import Credentials
 import requests
 import pytz
+zona_mx = pytz.timezone('America/Mexico_City')
 
 # ==========================================
 # CONFIGURACIÓN DE LA PÁGINA Y COLORES
@@ -170,7 +171,7 @@ def cargar_personal():
                 df[col] = ""
             df[col] = df[col].fillna("").astype(str) 
                 
-        hoy = datetime.date.today()
+        hoy = datetime.datetime.now(zona_mx).date()
         def calcular_disponibilidad(fila):
             if pd.isna(fila.get('Nombre_ordenado')) or str(fila.get('Nombre_ordenado')).strip() == "" or pd.isna(fila.get('Región')):
                 return ""
@@ -249,7 +250,7 @@ def cargar_pendientes():
         df_ct = extraer_tabla_saltando_filas(doc, "CT", [0, 1, 2], ["Estado", "Municipio", "Pendientes"])
         if df_ct is not None: pendientes["CT"] = df_ct
 
-        fecha_mod = datetime.datetime.now() 
+        fecha_mod = datetime.datetime.now(zona_mx) 
         return cat, pendientes, fecha_mod
     except Exception as e:
         st.error(f"Error al leer la base de Pendientes en la nube: {e}")
@@ -436,7 +437,7 @@ elif menu == "🗺️ Distribución":
     if not df_global.empty:
         col_fecha, col_vacia = st.columns([1, 2])
         with col_fecha:
-            fecha_distribucion = st.date_input("📅 ¿Para qué fecha es esta distribución?", value=datetime.date.today() + datetime.timedelta(days=1), min_value=datetime.date.today())
+            fecha_distribucion = st.date_input("📅 ¿Para qué fecha es esta distribución?", value=datetime.datetime.now(zona_mx).date() + datetime.timedelta(days=1), min_value=datetime.datetime.now(zona_mx).date())
 
         def recalcular_disp(fila):
             if pd.isna(fila.get('Nombre_ordenado')) or pd.isna(fila.get('Región')): return ""
@@ -785,10 +786,10 @@ elif menu == "⏱️ Velocímetro":
     else:
         # --- 1. MATEMÁTICA DEL RITMO CONTRA META ---
         fechas_disponibles = sorted([f for f in df_cubos['Fecha'].unique() if pd.notna(f)], reverse=True)
-        fecha_temp = fechas_disponibles[0] if fechas_disponibles else datetime.date.today()
+        fecha_temp = fechas_disponibles[0] if fechas_disponibles else datetime.datetime.now(zona_mx).date()
         
-        hoy = datetime.date.today()
-        ahora = datetime.datetime.now().time()
+        hoy = datetime.datetime.now(zona_mx).date()
+        ahora = datetime.datetime.now(zona_mx).time()
         
         inicio_jornada = datetime.time(9, 0, 0)
         inicio_comida = datetime.time(15, 0, 0)
@@ -1173,7 +1174,7 @@ elif menu == "📈 Tablero de Control":
         metas_ideal = {"RE": 341, "BB": 341, "CT": 130, "TCH": 130}
 
         # 1. ¿Cuántas horas le quedan al día según la hora de actualización?
-        if fecha_actualizacion and fecha_actualizacion.date() == datetime.date.today():
+        if fecha_actualizacion and fecha_actualizacion.date() == datetime.datetime.now(zona_mx).date():
             hora_act = fecha_actualizacion.time()
         else:
             hora_act = datetime.time(9, 0, 0) # Si es de otro día, simulamos jornada completa
@@ -1319,14 +1320,14 @@ elif menu == "📈 Tablero de Control":
         st.divider()
         
         # 1. Calculamos la meta esperada (LA VARIABLE QUE FALTABA)
-        ahora_rank = datetime.datetime.now().time()
+        ahora_rank = datetime.datetime.now(zona_mx).time()
         ini_j = datetime.time(9, 0, 0); ini_c = datetime.time(15, 0, 0)
         fin_c = datetime.time(16, 0, 0); fin_j = datetime.time(18, 0, 0)
         
         if ahora_rank < ini_j: h_trans = 0.0
-        elif ahora_rank <= ini_c: h_trans = (datetime.datetime.combine(datetime.date.today(), ahora_rank) - datetime.datetime.combine(datetime.date.today(), ini_j)).total_seconds() / 3600
+        elif ahora_rank <= ini_c: h_trans = (datetime.datetime.combine(datetime.datetime.now(zona_mx).date(), ahora_rank) - datetime.datetime.combine(datetime.datetime.now(zona_mx).date(), ini_j)).total_seconds() / 3600
         elif ahora_rank <= fin_c: h_trans = 6.0
-        elif ahora_rank <= fin_j: h_trans = 6.0 + (datetime.datetime.combine(datetime.date.today(), ahora_rank) - datetime.datetime.combine(datetime.date.today(), fin_c)).total_seconds() / 3600
+        elif ahora_rank <= fin_j: h_trans = 6.0 + (datetime.datetime.combine(datetime.datetime.now(zona_mx).date(), ahora_rank) - datetime.datetime.combine(datetime.datetime.now(zona_mx).date(), fin_c)).total_seconds() / 3600
         else: h_trans = 8.0
         avance_esperado_rank = (h_trans / 8.0) * 100
         
@@ -1389,7 +1390,7 @@ elif menu == "📈 Tablero de Control":
         df_cubos_ranking = cargar_cubos(df_global)
         
         if not df_cubos_ranking.empty and not df_activos.empty:
-            hoy_ranking = datetime.date.today()
+            hoy_ranking = datetime.datetime.now(zona_mx).date()
             df_cubos_hoy = df_cubos_ranking[df_cubos_ranking['Fecha'] == hoy_ranking].copy()
             
             df_hist_reg = pd.merge(df_cubos_ranking, df_activos[['Nombre_ordenado', 'Región']], left_on='Verificador', right_on='Nombre_ordenado', how='inner')
