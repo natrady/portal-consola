@@ -108,14 +108,8 @@ if not st.session_state['logeado']:
         else:
             auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?client_id={client_id.strip()}&response_type=code&scope=openid%20email%20profile&redirect_uri={redirect_uri}&prompt=select_account"
             
-            boton_html = f"""
-            <a href="{auth_url}" target="_top" style="text-decoration: none;">
-                <div style="background-color: #4285F4; color: white; padding: 12px; border-radius: 5px; text-align: center; font-weight: bold; font-family: sans-serif; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
-                    👉 Continuar con Google
-                </div>
-            </a>
-            """
-            st.markdown(boton_html, unsafe_allow_html=True)
+            # Botón nativo de Streamlit (Inmune a la jaula)
+            st.link_button("👉 Continuar con Google", auth_url, type="primary", use_container_width=True)
 
     # Detenemos la ejecución aquí si no están logueados
     st.stop()
