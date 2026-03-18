@@ -106,7 +106,7 @@ if not st.session_state['logeado']:
 
         # 2. Si no hay código, mostramos el botón visual para ir a Google
         else:
-            auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?client_id={client_id.strip()}&response_type=code&scope=openid%20email%20profile&redirect_uri={redirect_uri}"
+            auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?client_id={client_id.strip()}&response_type=code&scope=openid%20email%20profile&redirect_uri={redirect_uri}&prompt=select_account"
             
             boton_html = f"""
             <a href="{auth_url}" target="_self" style="text-decoration: none;">
