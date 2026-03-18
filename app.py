@@ -149,7 +149,24 @@ mapa_regiones = {
     "Sur Sureste": "Ss", "Ss": "Ss",
     "AD": "AD", "Apoyo": "Apoyo"
 }
-
+# ==========================================
+# LECTOR DE HORA REAL (GOOGLE DRIVE API)
+# ==========================================
+def obtener_fecha_modificacion(file_id):
+    if not gc: return datetime.datetime.now(zona_mx)
+    try:
+        # Le preguntamos directo a Drive la hora de última edición
+        url = f"https://www.googleapis.com/drive/v3/files/{file_id}?fields=modifiedTime"
+        res = gc.session.get(url)
+        mod_time_str = res.json().get('modifiedTime')
+        if mod_time_str:
+            # Google nos da la hora en formato UTC, la convertimos a México
+            utc_time = datetime.datetime.strptime(mod_time_str[:19], "%Y-%m-%dT%H:%M:%S")
+            utc_time = utc_time.replace(tzinfo=pytz.utc)
+            return utc_time.astimezone(zona_mx)
+    except:
+        pass
+    return datetime.datetime.now(zona_mx)
 # ==========================================
 # FUNCIONES LECTORAS/ESCRITORAS (EN LA NUBE)
 # ==========================================
@@ -250,7 +267,7 @@ def cargar_pendientes():
         df_ct = extraer_tabla_saltando_filas(doc, "CT", [0, 1, 2], ["Estado", "Municipio", "Pendientes"])
         if df_ct is not None: pendientes["CT"] = df_ct
 
-        fecha_mod = datetime.datetime.now(zona_mx) 
+        fecha_mod = obtener_fecha_modificacion(SHEET_PENDIENTES_ID) 
         return cat, pendientes, fecha_mod
     except Exception as e:
         st.error(f"Error al leer la base de Pendientes en la nube: {e}")
@@ -258,8 +275,9 @@ def cargar_pendientes():
 
 @st.cache_data(ttl=300, show_spinner="Descargando Cubos desde Google...")
 def cargar_cubos(_df_personal):
-    if not gc: return pd.DataFrame()
+    if not gc: return pd.DataFrame(), None
     try:
+        fecha_mod_sheet = obtener_fecha_modificacion(SHEET_CUBOS_ID)
         doc = gc.open_by_key(SHEET_CUBOS_ID)
         dict_nombres = dict(zip(_df_personal['Nombre_Plataforma'].astype(str).str.strip().str.upper(), _df_personal['Nombre_ordenado']))
         
@@ -302,10 +320,10 @@ def cargar_cubos(_df_personal):
         df_final['Fecha'] = pd.to_datetime(df_final['Fecha_Cruda'], errors='coerce', dayfirst=True).dt.date
         df_final = df_final.drop_duplicates(subset=['Módulo', 'Folio', 'Hora_HHMM'])
         
-        return df_final
+        return df_final, fecha_mod_sheet
     except Exception as e:
         st.error(f"Error maestro al leer Cubos_DB: {e}")
-        return pd.DataFrame()
+        return pd.DataFrame(), None                                                      
 
 # -----------------------------------
 df_global = cargar_personal()
@@ -779,7 +797,7 @@ elif menu == "⏱️ Velocímetro":
     
     st.divider()
     
-    df_cubos = cargar_cubos(df_global)
+    df_cubos, fecha_mod_cubos = cargar_cubos(df_global)
     
     if df_cubos.empty:
         st.warning("📭 No se encontraron datos válidos en el Google Sheet de Cubos. Asegúrate de pegar la información a partir de la fila 3.")
@@ -789,7 +807,7 @@ elif menu == "⏱️ Velocímetro":
         fecha_temp = fechas_disponibles[0] if fechas_disponibles else datetime.datetime.now(zona_mx).date()
         
         hoy = datetime.datetime.now(zona_mx).date()
-        ahora = datetime.datetime.now(zona_mx).time()
+        ahora = fecha_mod_cubos.time() if fecha_mod_cubos else datetime.datetime.now(zona_mx).time()
         
         inicio_jornada = datetime.time(9, 0, 0)
         inicio_comida = datetime.time(15, 0, 0)
@@ -832,7 +850,7 @@ elif menu == "⏱️ Velocímetro":
                 texto_hora = "Jornada futura"
             else: 
                 avance_esperado = avance_esperado_hoy
-                texto_hora = f"A las {ahora.strftime('%H:%M')} hrs"
+                texto_hora = f"Datos del Sheet a las {ahora.strftime('%H:%M')} hrs"
             
             st.metric("Meta de Tiempo", f"{avance_esperado:.0%}")
             st.caption(f"🕒 {texto_hora}")
@@ -1206,7 +1224,7 @@ elif menu == "📈 Tablero de Control":
         with col_k1:
             st.metric("📦 Total de Pendientes", f"{total_pendientes:,}")
             if fecha_actualizacion:
-                st.caption(f"🕒 Base leída a las: {fecha_actualizacion.strftime('%H:%M')} hrs")
+                st.caption(f"🕒 Última edición en Sheets a las: {fecha_actualizacion.strftime('%H:%M')} hrs")
         with col_k2:
             st.metric("🧑‍💻 Fuerza Verificadora", operativos_totales)
             st.caption(f"⏱️ Restan {horas_restantes:.1f} hrs de jornada")
@@ -1319,8 +1337,8 @@ elif menu == "📈 Tablero de Control":
 # --- 3. GAMIFICACIÓN: RANKING DE REGIONES (MURO DE LA FAMA) ---
         st.divider()
         
-        # 1. Calculamos la meta esperada (LA VARIABLE QUE FALTABA)
-        ahora_rank = datetime.datetime.now(zona_mx).time()
+        # 1. Calculamos la meta esperada anclada a la hora del sheet
+        ahora_rank = fecha_mod_rank.time() if fecha_mod_rank else datetime.datetime.now(zona_mx).time()
         ini_j = datetime.time(9, 0, 0); ini_c = datetime.time(15, 0, 0)
         fin_c = datetime.time(16, 0, 0); fin_j = datetime.time(18, 0, 0)
         
@@ -1387,7 +1405,7 @@ elif menu == "📈 Tablero de Control":
         """, unsafe_allow_html=True)
 
         # 4. Llamamos a los cubos desde la memoria caché
-        df_cubos_ranking = cargar_cubos(df_global)
+        df_cubos_ranking, fecha_mod_rank = cargar_cubos(df_global)
         
         if not df_cubos_ranking.empty and not df_activos.empty:
             hoy_ranking = datetime.datetime.now(zona_mx).date()
