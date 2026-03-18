@@ -8,6 +8,7 @@ import gspread
 import plotly.graph_objects as go
 from google.oauth2.service_account import Credentials
 import requests
+import pytz
 
 # ==========================================
 # CONFIGURACIÓN DE LA PÁGINA Y COLORES
