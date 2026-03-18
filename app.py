@@ -7,6 +7,7 @@ from io import BytesIO
 import gspread
 import plotly.graph_objects as go
 from google.oauth2.service_account import Credentials
+import requests
 
 # ==========================================
 # CONFIGURACIÓN DE LA PÁGINA Y COLORES
@@ -44,10 +45,15 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # ==========================================
-# 🛑 SISTEMA DE LOGIN VIP (EL CADENERO)
+# 🛑 SISTEMA DE LOGIN CON GOOGLE
 # ==========================================
 if 'logeado' not in st.session_state:
     st.session_state['logeado'] = False
+
+# Leemos las llaves de Google desde nuestra bóveda
+client_id = st.secrets["google_oauth"]["client_id"]
+client_secret = st.secrets["google_oauth"]["client_secret"]
+redirect_uri = "https://consola-verificaciondigital.streamlit.app"
 
 if not st.session_state['logeado']:
     st.markdown("<br><br>", unsafe_allow_html=True)
@@ -57,26 +63,60 @@ if not st.session_state['logeado']:
         st.markdown("""
         <div class="dashboard-card" style="text-align: center; border-top: 5px solid #9b2247;">
             <h2 style="color: #161a1d; margin-bottom: 5px;">Portal Consola</h2>
-            <p style="color: #6c757d; font-weight: bold; margin-bottom: 20px;">Verificación Digital</p>
+            <p style="color: #6c757d; font-weight: bold; margin-bottom: 20px;">Acceso exclusivo</p>
         </div>
         """, unsafe_allow_html=True)
-        
-        usuario_input = st.text_input("👤 Usuario / Correo")
-        password_input = st.text_input("🔑 Contraseña", type="password")
-        
-        if st.button("Iniciar Sesión", use_container_width=True):
-            # Leemos las credenciales válidas desde los secretos de la nube
-            credenciales_validas = st.secrets.get("usuarios", {})
+
+        # 1. Revisar si Google nos acaba de regresar a la página con un "código de acceso"
+        if "code" in st.query_params:
+            codigo_auth = st.query_params["code"]
             
-            if usuario_input in credenciales_validas and credenciales_validas[usuario_input] == password_input:
-                st.session_state['logeado'] = True
-                st.session_state['usuario_actual'] = usuario_input
-                st.rerun()
-            else:
-                st.error("🚨 Usuario o contraseña incorrectos. Intenta de nuevo.")
+            # Intercambiamos ese código por una credencial oficial
+            token_url = "https://oauth2.googleapis.com/token"
+            datos_token = {
+                "code": codigo_auth,
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "redirect_uri": redirect_uri,
+                "grant_type": "authorization_code"
+            }
+            respuesta_token = requests.post(token_url, data=datos_token)
+            
+            if respuesta_token.status_code == 200:
+                access_token = respuesta_token.json().get("access_token")
                 
-    # Si no está logeado, st.stop() mata la ejecución aquí mismo. 
-    # El código de abajo NO se ejecuta y se protegen tus datos.
+                # Le preguntamos a Google el correo de la persona que acaba de entrar
+                user_info_url = "https://www.googleapis.com/oauth2/v1/userinfo"
+                respuesta_usuario = requests.get(user_info_url, headers={"Authorization": f"Bearer {access_token}"})
+                correo_usuario = respuesta_usuario.json().get("email")
+                
+                # Revisamos si el correo está en nuestra Lista VIP de st.secrets
+                credenciales_validas = st.secrets.get("usuarios", {})
+                if correo_usuario in credenciales_validas:
+                    st.session_state['logeado'] = True
+                    st.session_state['usuario_actual'] = correo_usuario
+                    st.query_params.clear() # Limpiamos la URL para que se vea bonita
+                    st.rerun()
+                else:
+                    st.error(f"🚨 El correo {correo_usuario} no está en la lista de acceso.")
+                    st.query_params.clear()
+            else:
+                st.error("🚨 Hubo un error al conectar con Google. Intenta de nuevo.")
+                st.query_params.clear()
+
+        # 2. Si no hay código, mostramos el botón visual para ir a Google
+        else:
+            auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?client_id={client_id}&response_type=code&scope=openid%20email%20profile&redirect_uri={redirect_uri}"
+            st.markdown(f'''
+                <a href="{auth_url}" target="_self" style="text-decoration: none;">
+                    <div style="background-color: #ffffff; border: 1px solid #dadce0; border-radius: 4px; padding: 10px 15px; text-align: center; color: #3c4043; font-weight: 500; font-family: 'Google Sans',Roboto,Arial,sans-serif; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 2px 0 rgba(60,64,67,0.3); transition: background-color .218s ease, border-color .218s ease, box-shadow .218s ease;">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" style="width: 20px; height: 20px; margin-right: 10px;">
+                        Continuar con Google
+                    </div>
+                </a>
+            ''', unsafe_allow_html=True)
+
+    # Detenemos la ejecución aquí si no están logueados
     st.stop()
 
 # ==========================================
