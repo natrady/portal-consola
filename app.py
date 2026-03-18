@@ -106,9 +106,12 @@ if not st.session_state['logeado']:
 
         # 2. Si no hay código, mostramos el botón visual para ir a Google
         else:
-            auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?client_id={client_id}&response_type=code&scope=openid%20email%20profile&redirect_uri={redirect_uri}"
+            # Usamos .strip() para borrar espacios accidentales en tu llave
+            auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?client_id={client_id.strip()}&response_type=code&scope=openid%20email%20profile&redirect_uri={redirect_uri}"
+            
+            # Cambiamos target="_self" a target="_top" para evitar bloqueos de marcos
             st.markdown(f'''
-                <a href="{auth_url}" target="_self" style="text-decoration: none;">
+                <a href="{auth_url}" target="_top" style="text-decoration: none;">
                     <div style="background-color: #ffffff; border: 1px solid #dadce0; border-radius: 4px; padding: 10px 15px; text-align: center; color: #3c4043; font-weight: 500; font-family: 'Google Sans',Roboto,Arial,sans-serif; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 2px 0 rgba(60,64,67,0.3); transition: background-color .218s ease, border-color .218s ease, box-shadow .218s ease;">
                         <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" style="width: 20px; height: 20px; margin-right: 10px;">
                         Continuar con Google
