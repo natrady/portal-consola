@@ -155,17 +155,25 @@ mapa_regiones = {
 def obtener_fecha_modificacion(file_id):
     if not gc: return datetime.datetime.now(zona_mx)
     try:
-        # Le preguntamos directo a Drive la hora de última edición
         url = f"https://www.googleapis.com/drive/v3/files/{file_id}?fields=modifiedTime"
-        res = gc.session.get(url)
-        mod_time_str = res.json().get('modifiedTime')
+        
+        # Le damos compatibilidad para versiones nuevas y viejas de gspread
+        if hasattr(gc, 'http_client'):
+            res = gc.http_client.request('GET', url)
+            mod_time_str = res.json().get('modifiedTime')
+        else:
+            res = gc.session.get(url)
+            mod_time_str = res.json().get('modifiedTime')
+            
         if mod_time_str:
-            # Google nos da la hora en formato UTC, la convertimos a México
             utc_time = datetime.datetime.strptime(mod_time_str[:19], "%Y-%m-%dT%H:%M:%S")
             utc_time = utc_time.replace(tzinfo=pytz.utc)
             return utc_time.astimezone(zona_mx)
-    except:
-        pass
+            
+    except Exception as e:
+        # Si el espía falla, nos chismeará el error en la barra lateral
+        st.sidebar.error(f"🕵️‍♀️ Error del espía en Drive: {e}")
+        
     return datetime.datetime.now(zona_mx)
 # ==========================================
 # FUNCIONES LECTORAS/ESCRITORAS (EN LA NUBE)
