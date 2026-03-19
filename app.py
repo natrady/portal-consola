@@ -1344,6 +1344,8 @@ elif menu == "📈 Tablero de Control":
                 st.warning("⚠️ No hay catálogo geográfico para cruzar las regiones.")
 # --- 3. GAMIFICACIÓN: RANKING DE REGIONES (MURO DE LA FAMA) ---
         st.divider()
+        # 0. Descargamos los datos PRIMERO para tener la hora
+        df_cubos_ranking, fecha_mod_rank = cargar_cubos(df_global)
         
         # 1. Calculamos la meta esperada anclada a la hora del sheet
         ahora_rank = fecha_mod_rank.time() if fecha_mod_rank else datetime.datetime.now(zona_mx).time()
@@ -1413,7 +1415,7 @@ elif menu == "📈 Tablero de Control":
         """, unsafe_allow_html=True)
 
         # 4. Llamamos a los cubos desde la memoria caché
-        df_cubos_ranking, fecha_mod_rank = cargar_cubos(df_global)
+        
         
         if not df_cubos_ranking.empty and not df_activos.empty:
             hoy_ranking = datetime.datetime.now(zona_mx).date()
